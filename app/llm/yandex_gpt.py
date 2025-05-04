@@ -3,7 +3,7 @@ from typing import List, Dict
 from yandex_cloud_ml_sdk import YCloudML
 from yandex_cloud_ml_sdk.auth import APIKeyAuth
 
-from basellmodel import BaseLLModel
+from app.llm.basellmodel import BaseLLModel
 from app.config import settings
 
 class YandexGPT5(BaseLLModel):
@@ -25,29 +25,14 @@ class YandexGPT5(BaseLLModel):
 
     def request(self, messages: List[Dict[str, str]]):
 
+        # operation = (
+        #     self.model.run_deferred(messages)
+        # )
+        #
+        # result = operation.wait()
+
         result = (
             self.model.run(messages)
         )
 
-        return result[0].text
-
-def main() -> None:
-
-    yandexgpt5 = YandexGPT5(settings.folder_id, auth=settings.yc_api_key)
-
-    messages = [
-        {
-            "role": "system",
-            "text": "Ты умный ассистент",
-        },
-        {
-            "role": "user",
-            "text": "Привет! Какими науками занимался Альберт Эйнштейн?",
-        },
-    ]
-
-    print(yandexgpt5.request)
-
-
-if __name__ == "__main__":
-    main()
+        return result

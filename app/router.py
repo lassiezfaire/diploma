@@ -18,7 +18,7 @@ async def get_dashboard(dashboard_id: str):
 
 @router.post("/dashboard")
 async def create_dashboard(request: DashboardCreateRequest):
-    response = await grafana_client.post("/dashboards/db", data=request.dict())
+    response = await grafana_client.post("/dashboards/db", data=request.model_dump())
     if response.status_code == 200:
         return response.json()
     else:
