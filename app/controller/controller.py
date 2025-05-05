@@ -1,16 +1,15 @@
-from typing import List, Dict, Any
+from typing import List, Dict
+from httpx import Response
 import json
 
 from app.llm.yandex_gpt import YandexGPT5
 from app.config import settings
 from app.utils.http_client import grafana_client
 
-def process_request(messages: List[Dict[str, str]]) -> None:
+def process_request(messages: List[Dict[str, str]]) -> Response:
     yandexgpt5 = YandexGPT5(settings.folder_id, auth=settings.yc_api_key)
 
     result = yandexgpt5.request(messages=messages)
-
-    print(result)
 
     result_role = result.alternatives[0].role
     result_text = result.alternatives[0].text
@@ -19,10 +18,9 @@ def process_request(messages: List[Dict[str, str]]) -> None:
 
     response = grafana_client.post("/dashboards/db", data=data)
 
-    if response.status_code == 200:
-        print("Dashboard created successfully")
-    else:
-        print(f"Error creating dashboard: {response.status_code}")
+    print(type(response))
+
+    return response
 
 def main() -> None:
     messages = [

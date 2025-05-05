@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from router import router
+from app.router import router
 
 app = FastAPI()
 
@@ -10,4 +10,4 @@ async def root():
 
 app.include_router(router)
 
-# uvicorn main:app --reload
+# uvicorn app.main:app --host 127.0.0.1 --port 80 --reload
