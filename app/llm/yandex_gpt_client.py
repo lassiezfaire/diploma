@@ -1,9 +1,13 @@
 import json
+import logging
 
 from yandex_cloud_ml_sdk import YCloudML
 from yandex_cloud_ml_sdk.auth import APIKeyAuth
 
 from app.llm.base_client import BaseLLMClient
+from app.configs.logging_config import setup_logging
+
+setup_logging()
 
 
 class YandexGPT5Client(BaseLLMClient):
@@ -26,7 +30,10 @@ class YandexGPT5Client(BaseLLMClient):
 
         self.system_prompt = system_prompt
 
-    def request(self, message: str):
+    def request(self, user_prompt: str):
+
+        logging.info(f"Пользовательский промпт: {user_prompt}")
+        logging.info(f"Системный промпт: {self.system_prompt}")
 
         messages = [
             {
@@ -35,7 +42,7 @@ class YandexGPT5Client(BaseLLMClient):
             },
             {
                 "role": "user",
-                "text": message,
+                "text": user_prompt,
             },
         ]
 
@@ -45,5 +52,8 @@ class YandexGPT5Client(BaseLLMClient):
         result_text = request_result.alternatives[0].text
 
         data = json.loads(result_text.replace("```", "").strip())
+
+        json_data = json.dumps(data, indent=4, ensure_ascii=False)
+        logging.info(f"JSON представление дашборда Grafana: \n{json_data}")
 
         return data

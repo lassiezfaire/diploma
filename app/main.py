@@ -4,9 +4,11 @@ from app.router import router
 
 app = FastAPI()
 
+
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs")
+
 
 app.include_router(router)
 
