@@ -1,12 +1,11 @@
 from app.llm.base_client import BaseLLMClient
 from app.grafana.client import GrafanaClient
-from app.configs.config import settings
+from app.grafana.client import grafana_client
 
 
 class Agent:
     def __init__(self, llm_client: BaseLLMClient):
-        self.grafana_client = GrafanaClient(base_url=f"{settings.grafana_url}:{settings.grafana_port}/api",
-                                            api_key=settings.grafana_token)
+        self.grafana_client = grafana_client
 
         self.llm_client = llm_client
 
@@ -14,6 +13,6 @@ class Agent:
 
         data = self.llm_client.request(user_prompt=user_prompt)
 
-        response = self.grafana_client.post("/dashboards/db", data=data)
+        response = self.grafana_client.post("/api/dashboards/db", data=data)
 
         return response

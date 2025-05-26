@@ -1,19 +1,34 @@
+from typing import Optional, Dict, Any
+
 import httpx
+
+from app.configs.config import settings
 
 
 class GrafanaClient:
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self):
+        self.grafana_url = settings.grafana_url
+        self.grafana_port = settings.grafana_port
+        self.grafana_token = settings.grafana_token
+
         self.client = httpx.Client(
-            base_url=base_url,
+            base_url=f'{self.grafana_url}:{self.grafana_port}',
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {self.grafana_token}",
                 "Accept": "application/json",
                 "Content-Type": "application/json"
             }
         )
 
-    def get(self, url: str):
-        return self.client.get(url)
+    def get(self, endpoint: str) -> Optional[Dict[str, Any]]:
+        response = self.client.get(endpoint)
+        response.raise_for_status()
+        return response.json()
 
-    def post(self, url: str, data: dict):
-        return self.client.post(url, json=data)
+    def post(self, endpoint: str, data: dict) -> Optional[Dict[str, Any]]:
+        response = self.client.post(endpoint, json=data)
+        response.raise_for_status()
+        return response.json()
+
+
+grafana_client = GrafanaClient()
