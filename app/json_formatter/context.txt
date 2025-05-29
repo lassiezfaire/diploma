@@ -1,8 +1,0 @@
-У меня развёрнута IT-инфраструктура, которую мониторит Grafana с помощью нескольких источников данных (UID и Type):
-1. UID: femvgy0sqq70gb, Type: grafana-postgresql-datasource
-2. UID: aem72m9zffqpsf, Type: prometheus
-
-Вот список серверов, поставленных на мониторинг, и их Jobs:
-1. IP: 10.129.0.34, Job: linux hardware metrics
-2. IP: 10.129.0.18, Job: postgres
-3. IP: 178.216.97.99, Job: windows hardware metrics

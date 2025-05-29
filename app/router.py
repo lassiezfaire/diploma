@@ -1,30 +1,64 @@
-from fastapi import APIRouter, HTTPException
+from typing import List
+from fastapi import UploadFile
+from fastapi import APIRouter, HTTPException, Response
+
+from app.models import QuestionRequest, AssistantResponse
 from app.agent.agent import Agent
-from app.llm.yandex_gpt_client import YandexGPT5Client
-from app.configs.config import settings
-from app.configs.logging_config import setup_logging
-import logging
 
-setup_logging()
-
-router = APIRouter(prefix="/grafana", tags=["grafana"])
+router = APIRouter()
 
 
-@router.post("/dashboard")
-def create_dashboard(
-        user_prompt: str = "Generate sample JSON dashboard for Grafana HTTP API. Include fields like folderId and overwrite",
-        system_prompt: str = "You are experienced Grafana expert. Answer using JSON only"):
-    agent = Agent(llm_client=YandexGPT5Client(
-        folder_id=settings.folder_id,
-        auth=settings.yc_api_key,
-        system_prompt=system_prompt)
-    )
+@router.post("/upload", response_model=dict)
+async def upload_files(
+        files: List[UploadFile],
+        agent: Agent
+):
+    """Эндпоинт для предварительной загрузки файлов"""
+    try:
+        # Создаем временную сессию для загрузки файлов
+        session_id = agent.ai_assistant.create_session(files=files)
+        agent.ai_assistant.close_session(session_id)
 
-    response = agent.process_request(user_prompt=user_prompt)
+        return {"status": "files_uploaded", "count": len(files)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    if response.status_code == 200:
-        logging.info(f"Дашборд успешно отправлен в Grafana")
-        return response.json()
-    else:
-        logging.error(f"Ошибка при отправке дашборда в Grafana")
-        raise HTTPException(status_code=response.status_code, detail="Error creating dashboard")
+
+@router.post("/ask", response_model=AssistantResponse)
+async def ask_question(
+        request: QuestionRequest,
+        agent: Agent,
+        files: List[UploadFile]
+):
+    """Основной эндпоинт для вопросов к AI"""
+    try:
+        result = agent.process_request(
+            user_prompt=request.question,
+            files=files
+        )
+
+        return {
+            "answer": result["llm_response"]["answer"],
+            "model": result["llm_response"].get("model", "unknown"),
+            "grafana_status": result["grafana_response"]["status"] if result["grafana_response"] else None
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def close_session(
+        session_id: str,
+        agent: Agent
+):
+    """Закрывает сессию и освобождает ресурсы"""
+    try:
+        agent.ai_assistant.close_session(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Session cleanup error: {str(e)}")
+
+    return Response(status_code=204)
