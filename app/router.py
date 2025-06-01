@@ -1,49 +1,28 @@
 from typing import List
 from fastapi import UploadFile
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends
 
 from app.models import QuestionRequest, AssistantResponse
 from app.agent.agent import Agent
+from app.llm.yc_ai_assistant import YandexAIAssistant
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=dict)
-async def upload_files(
+def get_agent() -> Agent:
+    yandex_assistant = YandexAIAssistant()
+    return Agent(ai_assistant=yandex_assistant)
+
+
+@router.post("/sessions", response_model=dict)
+async def create_session(
         files: List[UploadFile],
-        agent: Agent
+        agent: Agent = Depends(get_agent)
 ):
-    """Эндпоинт для предварительной загрузки файлов"""
+    """Создает новую сессию с загруженными файлами"""
     try:
-        # Создаем временную сессию для загрузки файлов
-        session_id = agent.ai_assistant.create_session(files=files)
-        agent.ai_assistant.close_session(session_id)
-
-        return {"status": "files_uploaded", "count": len(files)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/ask", response_model=AssistantResponse)
-async def ask_question(
-        request: QuestionRequest,
-        agent: Agent,
-        files: List[UploadFile]
-):
-    """Основной эндпоинт для вопросов к AI"""
-    try:
-        result = agent.process_request(
-            user_prompt=request.question,
-            files=files
-        )
-
-        return {
-            "answer": result["llm_response"]["answer"],
-            "model": result["llm_response"].get("model", "unknown"),
-            "grafana_status": result["grafana_response"]["status"] if result["grafana_response"] else None
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        session_id = agent.create_session(files=files)
+        return {"session_id": session_id, "status": "created"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -51,7 +30,7 @@ async def ask_question(
 @router.delete("/sessions/{session_id}", status_code=204)
 async def close_session(
         session_id: str,
-        agent: Agent
+        agent: Agent = Depends(get_agent)
 ):
     """Закрывает сессию и освобождает ресурсы"""
     try:

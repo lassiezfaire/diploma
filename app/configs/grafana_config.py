@@ -7,7 +7,7 @@ class GrafanaSettings(BaseSettings):
     grafana_token: str
 
     class Config:
-        env_file = ".env"
+        env_file = "grafana.env"
 
 
 settings = GrafanaSettings()

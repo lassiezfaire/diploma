@@ -20,6 +20,11 @@ class BaseAIAssistant(ABC):
         pass
 
     @abstractmethod
+    async def _delete_assistant_via_api(self, assistant_id: str) -> None:
+        """Абстрактный метод для удаления ассистента через API"""
+        pass
+
+    @abstractmethod
     def close_session(self, session_id: str) -> None:
         """Закрытие сессии и освобождение ресурсов"""
         pass

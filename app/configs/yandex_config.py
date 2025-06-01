@@ -6,7 +6,7 @@ class YandexGPTSettings(BaseSettings):
     folder_id: str
 
     class Config:
-        env_file = ".env"
+        env_file = "yandex.env"
 
 
 settings = YandexGPTSettings()

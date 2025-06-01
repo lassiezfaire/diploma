@@ -8,10 +8,6 @@ class QuestionRequest(BaseModel):
     model: str = "yandexgpt"  # или "gigachat" и др.
 
 
-class FileUploadRequest(BaseModel):
-    files: Optional[List[UploadFile]] = None
-
-
 class AssistantResponse(BaseModel):
     answer: str
     model: str
