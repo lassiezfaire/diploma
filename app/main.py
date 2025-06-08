@@ -1,6 +1,7 @@
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from app.router import router
+from app.routes import router
 
 app = FastAPI()
 
@@ -9,7 +10,7 @@ app = FastAPI()
 async def root():
     return RedirectResponse(url="/docs")
 
-
 app.include_router(router)
 
-# uvicorn app.main:app --host 127.0.0.1 --port 80 --reload
+if __name__ == "__main__":
+    uvicorn.run('app.main:app', host='127.0.0.1', port=80, reload=True)

@@ -2,14 +2,14 @@ from typing import Optional, Dict, Any
 
 import httpx
 
-from app.configs.grafana_config import settings
+from app.config.api_config import grafana_settings
 
 
 class GrafanaClient:
     def __init__(self):
-        self.grafana_url = settings.grafana_url
-        self.grafana_port = settings.grafana_port
-        self.grafana_token = settings.grafana_token
+        self.grafana_url = grafana_settings.grafana_url
+        self.grafana_port = grafana_settings.grafana_port
+        self.grafana_token = grafana_settings.grafana_token
 
         self.client = httpx.Client(
             base_url=f'{self.grafana_url}:{self.grafana_port}',
