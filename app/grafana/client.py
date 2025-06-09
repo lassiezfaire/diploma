@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 
 import httpx
 
-from app.config.api_config import grafana_settings
+from app.config.grafana_config import grafana_settings
 
 
 class GrafanaClient:
