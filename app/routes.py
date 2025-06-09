@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 
 from app.agent.agent import AIAgent
 from app.llm_clients.yandex_client import YandexClient
+from app.config.logging_config import logger
 
 router = APIRouter()
 
@@ -61,17 +62,26 @@ def create_assistant(
 
 @router.post("/assistant/{assistant_id}/ask", response_model=Dict[str, Any])
 def ask_assistant(
-        session_id: str,
-        user_prompt: str
+    session_id: str,
+    user_prompt: str
 ):
     """Задает вопрос ассистенту в указанной сессии"""
     try:
-        response = agent.request(
+        logger.info(f"\n=== New Request ===")
+        logger.info(f"System Prompt: {system_prompt}")
+        logger.info(f"User Prompt: {user_prompt}")
+
+        # Получаем чистый JSON ответ без обертки
+        response_data = agent.request(
             session_id=session_id,
             question=user_prompt
         )
+
+        logger.info(f"LLM Response: {response_data}")
+        logger.info(f"=== End Request ===\n")
+
         return {
-            "response": response,
+            "response": response_data,  # Уже чистый JSON
             "session_id": session_id
         }
     except ValueError as e:
@@ -93,6 +103,25 @@ def delete_assistant(session_id: str):
 
 
 @router.get("/assistants", response_model=List[dict])
-def list_assistants() -> List[dict]:
-    """Выводит список всех ассистентов"""
-    pass
+def list_assistants() -> List[Dict[str, Any]]:
+    """Возвращает список всех активных сессий ассистентов с их метаданными"""
+    try:
+        # Получаем список всех ассистентов через агента
+        assistants = agent.list_assistants()
+
+        # Если метод list_assistants() не реализован, возвращаем сессии из YandexClient
+        if assistants is None or assistants == []:
+            # Доступ к хранилищу сессий YandexClient (если нужно)
+            yandex_sessions = yandex_assistant.sessions
+            return [
+                {
+                    "session_id": session_id,
+                    "assistant_id": session_data["assistant_id"],
+                }
+                for session_id, session_data in yandex_sessions.items()
+            ]
+
+        return assistants
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list assistants: {str(e)}")

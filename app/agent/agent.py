@@ -10,7 +10,7 @@ class AIAgent:
 
         self.grafana_client = grafana_client
 
-    def create_agent(self, system_prompt: str, file_path: str) -> str:
+    def create_agent(self, system_prompt: str, file_path: str = None) -> str:
         """Создает новую сессию ассистента"""
         session_id = self.llm_client.create_assistant(
             system_prompt=system_prompt,
@@ -21,7 +21,9 @@ class AIAgent:
 
     def request(self, session_id: str, question: str) -> Dict[str, Any]:
         """Задаёт вопрос ассистенту и отправляет его ответ в Grafana"""
-        llm_response = self.llm_client.ask_assistant(session_id, question)
+        # llm_response = self.llm_client.ask_assistant(session_id, question)
+
+        # grafana_response = self.grafana_client.post("/api/dashboards/db", data=llm_response)
 
         return self.llm_client.ask_assistant(session_id, question)
 
