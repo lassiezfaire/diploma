@@ -216,7 +216,7 @@ class YandexClient(BaseLLMClient):
         raise TimeoutError("Assistant response timeout")
 
     def _extract_json_from_response(self, raw_response: str) -> Dict[str, Any]:
-        """Извлекает и валидирует JSON из ответа LLM с обработкой особых случаев"""
+        """Извлекает и валидирует JSON из ответа LLM, обрабатывая поле id"""
         try:
             # Удаляем Markdown обрамление
             clean_response = re.sub(r'^```(json)?|```$', '', raw_response, flags=re.MULTILINE).strip()
@@ -225,12 +225,48 @@ class YandexClient(BaseLLMClient):
             clean_response = self._fix_inner_quotes(clean_response)
 
             # Парсим JSON
-            return json.loads(clean_response)
+            parsed_json = json.loads(clean_response)
+
+            # Проверяем наличие dashboard в корне
+            if 'dashboard' not in parsed_json:
+                if any(key in parsed_json for key in ['panels', 'title', 'schemaVersion']):
+                    logger.info("Wrapping response in 'dashboard' field")
+                    parsed_json = {'dashboard': parsed_json}
+                else:
+                    raise ValueError("Response doesn't contain valid Grafana dashboard structure")
+
+            # Удаляем id из корня дашборда, если он есть
+            if 'id' in parsed_json['dashboard']:
+                logger.info(f"Removing root dashboard id: {parsed_json['dashboard']['id']}")
+                del parsed_json['dashboard']['id']
+
+            # Добавляем folderId если отсутствует
+            if 'folderId' not in parsed_json:
+                logger.info("Adding default folderId=0")
+                parsed_json['folderId'] = 0
+
+            # Добавляем overwrite если отсутствует
+            if 'overwrite' not in parsed_json:
+                logger.info("Adding default overwrite=True")
+                parsed_json['overwrite'] = True
+
+            # Проверяем обязательные поля
+            required_fields = ['panels', 'title']
+            if not all(field in parsed_json['dashboard'] for field in required_fields):
+                missing = [f for f in required_fields if f not in parsed_json['dashboard']]
+                raise ValueError(f"Dashboard missing required fields: {missing}")
+
+            return parsed_json
+
         except json.JSONDecodeError as e:
-            # Логируем ошибку для отладки
-            logger.error(f"Failed to parse JSON. Original response: {raw_response}")
-            logger.error(f"Cleaned response: {clean_response}")
+            logger.error(f"JSON decode error: {str(e)}\nResponse: {raw_response[:500]}")
             raise RuntimeError(f"Invalid JSON from LLM: {str(e)}")
+        except ValueError as e:
+            logger.error(f"Dashboard validation failed: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            raise RuntimeError(f"Failed to process LLM response: {str(e)}")
 
     def _fix_inner_quotes(self, json_str: str) -> str:
         """Исправляет кавычки в выражениях типа expr"""

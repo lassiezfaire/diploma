@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import httpx
 from typing import Annotated, Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -62,31 +63,43 @@ def create_assistant(
 
 @router.post("/assistant/{assistant_id}/ask", response_model=Dict[str, Any])
 def ask_assistant(
-    session_id: str,
-    user_prompt: str
+        session_id: str,
+        user_prompt: str
 ):
-    """Задает вопрос ассистенту в указанной сессии"""
+    """Задает вопрос ассистенту в указанной сессии и возвращает ответ с информацией о Grafana"""
     try:
         logger.info(f"\n=== New Request ===")
         logger.info(f"System Prompt: {system_prompt}")
         logger.info(f"User Prompt: {user_prompt}")
 
-        # Получаем чистый JSON ответ без обертки
-        response_data = agent.request(
+        # Получаем ответ от агента (теперь с информацией о Grafana)
+        agent_response = agent.request(
             session_id=session_id,
             question=user_prompt
         )
 
-        logger.info(f"LLM Response: {response_data}")
+        logger.info(f"Grafana Status: {agent_response.get('grafana', {}).get('status')}")
         logger.info(f"=== End Request ===\n")
 
+        # Формируем ответ для клиента
         return {
-            "response": response_data,  # Уже чистый JSON
-            "session_id": session_id
+            "dashboard": agent_response["response"],  # Сам дашборд
+            "session_id": session_id,
+            "grafana": {
+                "status": agent_response["grafana"]["status"],
+                "url": agent_response["grafana"].get("url"),
+                "uid": agent_response["grafana"].get("uid")
+            }
         }
+
     except ValueError as e:
+        logger.error(f"Validation error: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Grafana API error: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Grafana service error: {str(e)}")
     except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
