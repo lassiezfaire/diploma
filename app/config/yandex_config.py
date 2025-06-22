@@ -5,9 +5,10 @@ from pydantic import Field
 class YandexSettings(BaseSettings):
     yc_api_key: str = Field(..., env="YC_API_KEY")
     yc_folder_id: str = Field(..., env="YC_FOLDER_ID")
+    llc_model: str = Field(..., env="LLC_MODEL")
 
     class Config:
-        env_file = "../.env"
+        env_file = "..\\.env"
         extra = "allow"
 
 

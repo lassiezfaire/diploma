@@ -1,52 +1,45 @@
-import json
-from typing import Dict, Any, List
-
-from app.grafana.client import grafana_client
-from app.config.logging_config import logger
-from app.llm_clients.base_client import BaseLLMClient
+from app.llm_clients import BaseLLMClient, LLM_Response
+from .functions import *
+from ..grafana.client import grafana_client
 
 
 class AIAgent:
     def __init__(self, llm_client: BaseLLMClient):
         self.llm_client = llm_client
-
         self.grafana_client = grafana_client
 
-    def create_agent(self, system_prompt: str, file_path: str = None) -> str:
-        """Создает новую сессию ассистента"""
-        session_id = self.llm_client.create_assistant(
-            system_prompt=system_prompt,
-            file_path=file_path
-        )
+    def process_command(self, user_prompt):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, 'system_prompt.txt')
+        with open(file_path, "+r", encoding='utf-8') as file:
+            system_prompt = file.read()
+        logger.info("=" * 30 + "Model: " + self.llm_client.model + "=" * 30)
+        logger.info("user_prompt: " + user_prompt)
+        extended_user_prompt = self.preprocess(user_prompt)
+        llm_response = self.ask_llm(extended_user_prompt, system_prompt)
+        if llm_response.http_status != 200:
+            logger.info(f'LLM вернула ошибку (код {llm_response.http_status}): {llm_response.error}')
+            return f'LLM вернула ошибку (код {llm_response.http_status}): {llm_response.error}'
+        try:
+            logger.info(f'Ответ от LLM получен. Использовано токенов: {llm_response.tokens}')
+            llm_response = self.postprocess(llm_response)
+            write_json_str_to_file(llm_response.answer, 'response.json')
+            grafana_client.update_dashboard(llm_response.answer)
+            return "Команда обработана успешно"
+        except Exception as error:
+            write_str_to_file(llm_response.answer)
+            logger.info(f'Возникла ошибка при обработке ответа LLM: {error}')
+            return f'Возникла ошибка при обработке ответа LLM: {error}'
 
-        return session_id
+    def preprocess(self, user_prompt: str):
+        dashboard = grafana_client.get_dashboard(grafana_settings.dashboard_uid)
+        user_prompt += "\n" + "в качестве основы используй дашборд " + json.dumps(dashboard)
+        return user_prompt
 
-    def request(self, session_id: str, question: str) -> Dict[str, Any]:
-        """Задаёт вопрос ассистенту и отправляет его ответ в Grafana"""
-        llm_response = self.llm_client.ask_assistant(session_id, question)
+    def ask_llm(self, user_prompt: str, system_prompt) -> LLM_Response:
+        answer = self.llm_client.ask_assistant(user_prompt, system_prompt)
+        return answer
 
-        logger.info(f"Generated dashboard:\n{json.dumps(llm_response, indent=4)}")
-
-        grafana_response = self.grafana_client.post("/api/dashboards/db", data=llm_response)
-
-        logger.info(f"Grafana API response: {grafana_response}")
-
-        return {
-            "response": llm_response,
-            "session_id": session_id,
-            "grafana": {
-                "status": "success",
-                "uid": grafana_response.get("uid"),
-                "url": f"{self.grafana_client.grafana_url}:{self.grafana_client.grafana_port}"
-                       f"{grafana_response.get('url', '')}",
-                "version": grafana_response.get("version")
-            }
-        }
-
-    def delete_agent(self, assistant_id: str) -> None:
-        """Удаляет ненужный ассистент."""
-        self.llm_client.delete_assistant(assistant_id)
-
-    def list_assistants(self) -> List[dict]:
-        """Выводит список всех ассистентов"""
-        return self.llm_client.list_assistants()
+    def postprocess(self, llm_response: LLM_Response):
+        llm_response.answer = extract_json_from_response(llm_response.answer)
+        return llm_response
